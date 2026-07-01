@@ -1,34 +1,37 @@
 const { waitUntil } = require('@vercel/functions');
 
 module.exports = async (req, res) => {
-  // Allow all request types to bypass Vercel's automated header guards
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
   const googleScriptUrl = "https://script.google.com/macros/s/AKfycbw7oNRowuoZAwXYw9-F_dpiRc9BATNtR02jKsEaFDTklcvE8qHCcnrJGVwSU2f4gOs/exec";
   
-  // Safe Body Parsing: Handle raw strings, object objects, or broken text streams cleanly
+  // Accept raw strings or messy streams effortlessly
   let payload = req.body;
   if (typeof payload === 'string') {
     try {
       payload = JSON.parse(payload);
     } catch (e) {
-      console.log("Raw string payload detected, sending raw.");
+      console.log("Raw string detected, forwarding as-is.");
     }
   }
 
-  // Instantly unlock the A7670C modem serial pipeline in <50ms
-  res.status(200).send("SUCCESS");
-
-  // Fire background sync loop safely inside Vercel's lifecycle queue
+  // 1. Queue the Google Sheets forwarding task in Vercel's background lifecycle
   waitUntil(
     fetch(googleScriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
-    .then((response) => console.log("Google Sheets forward status:", response.status))
-    .catch((error) => console.error("Google Sync Failed:", error.message))
+    .then((response) => {
+      console.log("Background Google Sheets sync completed:", response.status);
+    })
+    .catch((error) => {
+      console.error("Background Sync Failed:", error.message);
+    })
   );
+
+  // 2. Respond immediately to the A7670C module (Takes < 50ms)
+  return res.status(200).send("SUCCESS");
 };
